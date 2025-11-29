@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Serial Number Generator</title>
+  <link rel="stylesheet" href="../styles/main.css">
+</head>
+<body>
+  <!-- Shooting Stars -->
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  
+  <div class="container">
+    <div class="nav">
+      <div class="nav-title">📊 Dashboard</div>
+      <div class="nav-user">
+        Welcome, <span id="userName"></span> (<span id="userRole"></span>)
+        <button class="logout-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="dashboard-stats">
+        <div class="stat-card">
+          <div class="stat-number" id="monthlyCount">0</div>
+          <div class="stat-label">Serials Generated This Month</div>
+        </div>
+        <div class="stat-card" id="userCountCard" style="display: none; background: linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%);">
+          <div class="stat-number" id="userCount">0</div>
+          <div class="stat-label">Total Registered Users</div>
+        </div>
+      </div>
+      
+      <h2>Quick Actions</h2>
+      <div class="action-buttons">
+        <button class="action-btn generate" onclick="navigate('generate.html')">
+          ➕ Generate Serial Numbers
+        </button>
+        <button class="action-btn reports" onclick="navigate('reports.html')">
+          📋 View Monthly Reports
+        </button>
+        <button class="action-btn analytics" onclick="navigate('analytics.html')">
+          📈 Analytics
+        </button>
+        <button class="action-btn admin" id="adminBtn" onclick="navigate('admin.html')" style="display: none;">
+          👤 Admin Panel
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const { ipcRenderer } = require('electron');
+    
+    let currentUser = null;
+    
+    async function init() {
+      // Check if user is logged in
+      const userData = localStorage.getItem('user');
+      if (!userData) {
+        window.location.href = 'login.html';
+        return;
+      }
+      
+      currentUser = JSON.parse(userData);
+      document.getElementById('userName').textContent = currentUser.username;
+      document.getElementById('userRole').textContent = currentUser.role;
+      
+      // Show admin button if user is admin
+      if (currentUser.role === 'Admin') {
+        document.getElementById('adminBtn').style.display = 'block';
+        
+        // Show user count for admin
+        document.getElementById('userCountCard').style.display = 'block';
+        const usersResult = await ipcRenderer.invoke('get-all-users');
+        if (usersResult.success) {
+          document.getElementById('userCount').textContent = usersResult.users.length;
+        }
+      }
+      
+      // Load monthly count
+      const result = await ipcRenderer.invoke('get-monthly-count', currentUser.role === 'Admin' ? null : currentUser.id);
+      if (result.success) {
+        document.getElementById('monthlyCount').textContent = result.count;
+      }
+    }
+    
+    function navigate(page) {
+      window.location.href = page;
+    }
+    
+    function logout() {
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    }
+    
+    init();
+  </script>
+</body>
+</html>

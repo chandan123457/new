@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel</title>
+  <link rel="stylesheet" href="../styles/main.css">
+</head>
+<body>
+  <!-- Shooting Stars -->
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  
+  <div class="container">
+    <div class="nav">
+      <div class="nav-title">👤 Admin Panel</div>
+      <div class="nav-user">
+        <button class="btn btn-secondary" onclick="navigate('dashboard.html')">← Back to Dashboard</button>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Manage All Serial Numbers</h2>
+      
+      <div class="export-buttons">
+        <button class="btn btn-warning" onclick="navigate('users.html')">👥 User Management</button>
+        <button class="btn btn-success" onclick="exportAllToExcel()">📊 Export All to Excel</button>
+        <button class="btn btn-danger" onclick="exportAllToPDF()">📄 Export All to PDF</button>
+        <button class="btn btn-primary" onclick="loadAllSerials()">🔄 Refresh</button>
+      </div>
+      
+      <div id="tableContainer">
+        <div class="loading">Loading all serial numbers...</div>
+      </div>
+    </div>
+    
+    <!-- Edit Modal -->
+    <div id="editModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;">
+      <div style="max-width: 600px; margin: 50px auto; background: white; padding: 30px; border-radius: 15px;">
+        <h3>Edit Serial Entry</h3>
+        <form id="editForm">
+          <input type="hidden" id="editId">
+          
+          <div class="form-group">
+            <label for="editModel">Model Number</label>
+            <select id="editModel">
+              <option value="Model-A">Model-A</option>
+              <option value="Model-B">Model-B</option>
+              <option value="Model-C">Model-C</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="editQuantity">Quantity</label>
+            <input type="number" id="editQuantity" min="1">
+          </div>
+          
+          <div class="form-group">
+            <label for="editDate">Date of Manufacturing</label>
+            <input type="date" id="editDate">
+          </div>
+          
+          <div class="form-group">
+            <label for="editBrazer">Brazer Name</label>
+            <input type="text" id="editBrazer">
+          </div>
+          
+          <div class="form-group">
+            <label for="editOperator">Operator Code</label>
+            <input type="text" id="editOperator">
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editCodeA">Code A</label>
+              <input type="text" id="editCodeA">
+            </div>
+            
+            <div class="form-group">
+              <label for="editCodeB">Code B</label>
+              <input type="text" id="editCodeB">
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editCodeC">Code C</label>
+              <input type="text" id="editCodeC">
+            </div>
+            
+            <div class="form-group">
+              <label for="editCodeD">Code D</label>
+              <input type="text" id="editCodeD">
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const { ipcRenderer } = require('electron');
+    
+    let currentUser = null;
+    let allSerials = [];
+    
+    async function init() {
+      const userData = localStorage.getItem('user');
+      if (!userData) {
+        window.location.href = 'login.html';
+        return;
+      }
+      currentUser = JSON.parse(userData);
+      
+      // Check if user is admin
+      if (currentUser.role !== 'Admin') {
+        alert('Access denied. Admin only.');
+        window.location.href = 'dashboard.html';
+        return;
+      }
+      
+      await loadAllSerials();
+    }
+    
+    async function loadAllSerials() {
+      const tableContainer = document.getElementById('tableContainer');
+      tableContainer.innerHTML = '<div class="loading">Loading all serial numbers...</div>';
+      
+      const result = await ipcRenderer.invoke('get-serials', null);
+      
+      if (result.success) {
+        allSerials = result.serials;
+        
+        if (allSerials.length === 0) {
+          tableContainer.innerHTML = '<div class="empty-state">No serial numbers found</div>';
+          return;
+        }
+        
+        let tableHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Model</th>
+                <th>Qty</th>
+                <th>Brazer</th>
+                <th>Operator</th>
+                <th>Serial Number</th>
+                <th>User</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        allSerials.forEach(record => {
+          tableHTML += `
+            <tr>
+              <td>${record.id}</td>
+              <td>${record.dateOfManufacturing}</td>
+              <td>${record.modelNumber}</td>
+              <td>${record.quantity}</td>
+              <td>${record.brazerName}</td>
+              <td>${record.operatorCode}</td>
+              <td><strong>${record.serialNumber}</strong></td>
+              <td>${record.username}</td>
+              <td>
+                <div class="action-icons">
+                  <button class="icon-btn btn-info" onclick="editSerial(${record.id})">✏️ Edit</button>
+                  <button class="icon-btn btn-danger" onclick="deleteSerial(${record.id})">🗑️ Delete</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+        
+        tableHTML += '</tbody></table>';
+        tableContainer.innerHTML = tableHTML;
+      } else {
+        tableContainer.innerHTML = `<div class="alert alert-error">Error: ${result.message}</div>`;
+      }
+    }
+    
+    function editSerial(id) {
+      const record = allSerials.find(s => s.id === id);
+      if (!record) return;
+      
+      document.getElementById('editId').value = record.id;
+      document.getElementById('editModel').value = record.modelNumber;
+      document.getElementById('editQuantity').value = record.quantity;
+      document.getElementById('editDate').value = record.dateOfManufacturing;
+      document.getElementById('editBrazer').value = record.brazerName;
+      document.getElementById('editOperator').value = record.operatorCode;
+      document.getElementById('editCodeA').value = record.codeA || '';
+      document.getElementById('editCodeB').value = record.codeB || '';
+      document.getElementById('editCodeC').value = record.codeC || '';
+      document.getElementById('editCodeD').value = record.codeD || '';
+      
+      document.getElementById('editModal').style.display = 'block';
+    }
+    
+    function closeEditModal() {
+      document.getElementById('editModal').style.display = 'none';
+    }
+    
+    document.getElementById('editForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const id = parseInt(document.getElementById('editId').value);
+      const data = {
+        modelNumber: document.getElementById('editModel').value,
+        quantity: parseInt(document.getElementById('editQuantity').value),
+        dateOfManufacturing: document.getElementById('editDate').value,
+        brazerName: document.getElementById('editBrazer').value,
+        operatorCode: document.getElementById('editOperator').value,
+        codeA: document.getElementById('editCodeA').value,
+        codeB: document.getElementById('editCodeB').value,
+        codeC: document.getElementById('editCodeC').value,
+        codeD: document.getElementById('editCodeD').value
+      };
+      
+      const result = await ipcRenderer.invoke('update-serial', { id, data });
+      
+      if (result.success) {
+        alert('Serial updated successfully!');
+        closeEditModal();
+        await loadAllSerials();
+      } else {
+        alert(`Error: ${result.message}`);
+      }
+    });
+    
+    async function deleteSerial(id) {
+      if (!confirm('Are you sure you want to delete this serial number entry?')) {
+        return;
+      }
+      
+      const result = await ipcRenderer.invoke('delete-serial', id);
+      
+      if (result.success) {
+        alert('Serial deleted successfully!');
+        await loadAllSerials();
+      } else {
+        alert(`Error: ${result.message}`);
+      }
+    }
+    
+    async function exportAllToExcel() {
+      if (allSerials.length === 0) {
+        alert('No data to export');
+        return;
+      }
+      
+      const exportData = allSerials.map(record => ({
+        ID: record.id,
+        Date: record.dateOfManufacturing,
+        Model: record.modelNumber,
+        Quantity: record.quantity,
+        Brazer: record.brazerName,
+        Operator: record.operatorCode,
+        'Code A': record.codeA,
+        'Code B': record.codeB,
+        'Code C': record.codeC,
+        'Code D': record.codeD,
+        'Serial Number': record.serialNumber,
+        User: record.username
+      }));
+      
+      const filename = `all_serials_${new Date().toISOString().split('T')[0]}`;
+      
+      const result = await ipcRenderer.invoke('export-excel', { data: exportData, filename });
+      
+      if (result.success) {
+        alert(`Excel file exported successfully!\nSaved to: ${result.path}`);
+      } else {
+        alert(`Error exporting: ${result.message}`);
+      }
+    }
+    
+    async function exportAllToPDF() {
+      if (allSerials.length === 0) {
+        alert('No data to export');
+        return;
+      }
+      
+      const filename = `all_serials_${new Date().toISOString().split('T')[0]}`;
+      
+      const result = await ipcRenderer.invoke('export-pdf', { data: allSerials, filename });
+      
+      if (result.success) {
+        alert(`PDF file exported successfully!\nSaved to: ${result.path}`);
+      } else {
+        alert(`Error exporting: ${result.message}`);
+      }
+    }
+    
+    function navigate(page) {
+      window.location.href = page;
+    }
+    
+    function logout() {
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    }
+    
+    init();
+  </script>
+</body>
+</html>

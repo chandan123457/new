@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - Serial Number Generator</title>
+  <link rel="stylesheet" href="../styles/main.css">
+</head>
+<body>
+  <!-- Shooting Stars -->
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  
+  <div class="container">
+    <div class="card login-card">
+      <h1>📝 Create New Account</h1>
+      <p style="text-align: center; color: #666; margin-bottom: 30px;">Register a new user account</p>
+      
+      <div id="alert"></div>
+      
+      <form id="registerForm">
+        <div class="form-group">
+          <label for="username">Username *</label>
+          <input type="text" id="username" name="username" required autofocus>
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Password *</label>
+          <input type="password" id="password" name="password" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="confirmPassword">Confirm Password *</label>
+          <input type="password" id="confirmPassword" name="confirmPassword" required>
+        </div>
+        
+        <button type="submit" class="btn btn-primary btn-block">Register</button>
+      </form>
+      
+      <div style="margin-top: 20px; text-align: center;">
+        <p style="color: #666;">Already have an account?</p>
+        <button class="btn btn-secondary" onclick="window.location.href='login.html'" style="margin-top: 10px;">
+          Back to Login
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const { ipcRenderer } = require('electron');
+    
+    const registerForm = document.getElementById('registerForm');
+    const alertDiv = document.getElementById('alert');
+    
+    registerForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const role = 'User'; // Always create User accounts from registration
+      
+      // Validation
+      if (username.length < 3) {
+        alertDiv.innerHTML = '<div class="alert alert-error">Username must be at least 3 characters long</div>';
+        return;
+      }
+      
+      if (password.length < 6) {
+        alertDiv.innerHTML = '<div class="alert alert-error">Password must be at least 6 characters long</div>';
+        return;
+      }
+      
+      if (password !== confirmPassword) {
+        alertDiv.innerHTML = '<div class="alert alert-error">Passwords do not match</div>';
+        return;
+      }
+      
+      alertDiv.innerHTML = '<div class="alert alert-info">Creating account...</div>';
+      
+      const result = await ipcRenderer.invoke('create-user', { username, password, role });
+      
+      if (result.success) {
+        alertDiv.innerHTML = '<div class="alert alert-success">Account created successfully! Redirecting to login...</div>';
+        setTimeout(() => {
+          window.location.href = 'login.html';
+        }, 2000);
+      } else {
+        alertDiv.innerHTML = `<div class="alert alert-error">${result.message}</div>`;
+      }
+    });
+  </script>
+</body>
+</html>

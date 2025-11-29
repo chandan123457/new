@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monthly Reports</title>
+  <link rel="stylesheet" href="../styles/main.css">
+</head>
+<body>
+  <!-- Shooting Stars -->
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  
+  <div class="container">
+    <div class="nav">
+      <div class="nav-title">📋 Monthly Reports</div>
+      <div class="nav-user">
+        <button class="btn btn-secondary" onclick="navigate('dashboard.html')">← Back to Dashboard</button>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Serial Number Reports</h2>
+      
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label for="monthFilter">Filter by Month</label>
+          <input type="month" id="monthFilter">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" onclick="loadReports()">🔍 Filter</button>
+        </div>
+      </div>
+      
+      <div class="export-buttons">
+        <button class="btn btn-success" onclick="exportToExcel()">📊 Export to Excel</button>
+        <button class="btn btn-danger" onclick="exportToPDF()">📄 Export to PDF</button>
+      </div>
+      
+      <div id="tableContainer">
+        <div class="loading">Loading reports...</div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const { ipcRenderer } = require('electron');
+    
+    let currentUser = null;
+    let currentData = [];
+    
+    async function init() {
+      const userData = localStorage.getItem('user');
+      if (!userData) {
+        window.location.href = 'login.html';
+        return;
+      }
+      currentUser = JSON.parse(userData);
+      
+      // Set default month to current month
+      const now = new Date();
+      document.getElementById('monthFilter').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      loadReports();
+    }
+    
+    async function loadReports() {
+      const month = document.getElementById('monthFilter').value;
+      const tableContainer = document.getElementById('tableContainer');
+      
+      if (!month) {
+        tableContainer.innerHTML = '<div class="empty-state">Please select a month</div>';
+        return;
+      }
+      
+      tableContainer.innerHTML = '<div class="loading">Loading reports...</div>';
+      
+      const userId = currentUser.role === 'Admin' ? null : currentUser.id;
+      const result = await ipcRenderer.invoke('get-serials-by-month', { month, userId });
+      
+      if (result.success) {
+        currentData = result.serials;
+        
+        if (currentData.length === 0) {
+          tableContainer.innerHTML = '<div class="empty-state">No records found for this month</div>';
+          return;
+        }
+        
+        let tableHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Date</th>
+                <th>Model</th>
+                <th>Qty</th>
+                <th>Brazer</th>
+                <th>Operator</th>
+                <th>Serial Number</th>
+                ${currentUser.role === 'Admin' ? '<th>User</th>' : ''}
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        currentData.forEach(record => {
+          tableHTML += `
+            <tr>
+              <td>${record.id}</td>
+              <td>${record.dateOfManufacturing}</td>
+              <td>${record.modelNumber}</td>
+              <td>${record.quantity}</td>
+              <td>${record.brazerName}</td>
+              <td>${record.operatorCode}</td>
+              <td><strong>${record.serialNumber}</strong></td>
+              ${currentUser.role === 'Admin' ? `<td>${record.username}</td>` : ''}
+            </tr>
+          `;
+        });
+        
+        tableHTML += '</tbody></table>';
+        tableContainer.innerHTML = tableHTML;
+      } else {
+        tableContainer.innerHTML = `<div class="alert alert-error">Error: ${result.message}</div>`;
+      }
+    }
+    
+    async function exportToExcel() {
+      if (currentData.length === 0) {
+        alert('No data to export');
+        return;
+      }
+      
+      const exportData = currentData.map(record => ({
+        ID: record.id,
+        Date: record.dateOfManufacturing,
+        Model: record.modelNumber,
+        Quantity: record.quantity,
+        Brazer: record.brazerName,
+        Operator: record.operatorCode,
+        'Code A': record.codeA,
+        'Code B': record.codeB,
+        'Code C': record.codeC,
+        'Code D': record.codeD,
+        'Serial Number': record.serialNumber,
+        ...(currentUser.role === 'Admin' ? { User: record.username } : {})
+      }));
+      
+      const month = document.getElementById('monthFilter').value;
+      const filename = `serial_report_${month}`;
+      
+      const result = await ipcRenderer.invoke('export-excel', { data: exportData, filename });
+      
+      if (result.success) {
+        alert(`Excel file exported successfully!\nSaved to: ${result.path}`);
+      } else {
+        alert(`Error exporting: ${result.message}`);
+      }
+    }
+    
+    async function exportToPDF() {
+      if (currentData.length === 0) {
+        alert('No data to export');
+        return;
+      }
+      
+      const month = document.getElementById('monthFilter').value;
+      const filename = `serial_report_${month}`;
+      
+      const result = await ipcRenderer.invoke('export-pdf', { data: currentData, filename });
+      
+      if (result.success) {
+        alert(`PDF file exported successfully!\nSaved to: ${result.path}`);
+      } else {
+        alert(`Error exporting: ${result.message}`);
+      }
+    }
+    
+    function navigate(page) {
+      window.location.href = page;
+    }
+    
+    function logout() {
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    }
+    
+    init();
+  </script>
+</body>
+</html>

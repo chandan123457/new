@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics</title>
+  <link rel="stylesheet" href="../styles/main.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- Shooting Stars -->
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  
+  <div class="container">
+    <div class="nav">
+      <div class="nav-title">📈 Analytics</div>
+      <div class="nav-user">
+        <button class="btn btn-secondary" onclick="navigate('dashboard.html')">← Back to Dashboard</button>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Serial Number Analytics</h2>
+      
+      <div class="chart-container">
+        <h3>Serials per Model</h3>
+        <canvas id="modelChart"></canvas>
+      </div>
+      
+      <div class="chart-container">
+        <h3>Serials per Operator</h3>
+        <canvas id="operatorChart"></canvas>
+      </div>
+      
+      <div class="chart-container">
+        <h3>Total per Month (Last 12 Months)</h3>
+        <canvas id="monthChart"></canvas>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const { ipcRenderer } = require('electron');
+    
+    let currentUser = null;
+    let charts = {};
+    
+    async function init() {
+      const userData = localStorage.getItem('user');
+      if (!userData) {
+        window.location.href = 'login.html';
+        return;
+      }
+      currentUser = JSON.parse(userData);
+      
+      await loadAnalytics();
+    }
+    
+    async function loadAnalytics() {
+      const userId = currentUser.role === 'Admin' ? null : currentUser.id;
+      const result = await ipcRenderer.invoke('get-analytics', userId);
+      
+      if (result.success) {
+        const { byModel, byOperator, byMonth } = result.analytics;
+        
+        // Model Chart
+        createChart('modelChart', {
+          type: 'bar',
+          data: {
+            labels: byModel.map(item => item.modelNumber),
+            datasets: [{
+              label: 'Serial Numbers Generated',
+              data: byModel.map(item => item.count),
+              backgroundColor: [
+                'rgba(102, 126, 234, 0.8)',
+                'rgba(118, 75, 162, 0.8)',
+                'rgba(67, 233, 123, 0.8)'
+              ],
+              borderColor: [
+                'rgba(102, 126, 234, 1)',
+                'rgba(118, 75, 162, 1)',
+                'rgba(67, 233, 123, 1)'
+              ],
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                display: false
+              }
+            }
+          }
+        });
+        
+        // Operator Chart
+        createChart('operatorChart', {
+          type: 'pie',
+          data: {
+            labels: byOperator.map(item => item.operatorCode),
+            datasets: [{
+              data: byOperator.map(item => item.count),
+              backgroundColor: [
+                'rgba(255, 99, 132, 0.8)',
+                'rgba(54, 162, 235, 0.8)',
+                'rgba(255, 206, 86, 0.8)',
+                'rgba(75, 192, 192, 0.8)',
+                'rgba(153, 102, 255, 0.8)',
+                'rgba(255, 159, 64, 0.8)'
+              ],
+              borderWidth: 2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: {
+                position: 'right'
+              }
+            }
+          }
+        });
+        
+        // Month Chart
+        createChart('monthChart', {
+          type: 'line',
+          data: {
+            labels: byMonth.map(item => item.month).reverse(),
+            datasets: [{
+              label: 'Serials Generated',
+              data: byMonth.map(item => item.count).reverse(),
+              borderColor: 'rgba(102, 126, 234, 1)',
+              backgroundColor: 'rgba(102, 126, 234, 0.2)',
+              borderWidth: 3,
+              fill: true,
+              tension: 0.4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+    
+    function createChart(canvasId, config) {
+      const ctx = document.getElementById(canvasId);
+      if (charts[canvasId]) {
+        charts[canvasId].destroy();
+      }
+      charts[canvasId] = new Chart(ctx, config);
+    }
+    
+    function navigate(page) {
+      window.location.href = page;
+    }
+    
+    function logout() {
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    }
+    
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generate Serial Numbers</title>
+  <link rel="stylesheet" href="../styles/main.css">
+</head>
+<body>
+  <!-- Shooting Stars -->
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  <div class="shooting-star"></div>
+  
+  <div class="container">
+    <div class="nav">
+      <div class="nav-title">➕ Generate Serial Numbers</div>
+      <div class="nav-user">
+        <button class="btn btn-secondary" onclick="navigate('dashboard.html')">← Back to Dashboard</button>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2>Serial Number Generation Form</h2>
+      <div id="alert"></div>
+      
+      <form id="generateForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="modelNumber">Model Number *</label>
+            <select id="modelNumber" name="modelNumber" required>
+              <option value="">Select Model</option>
+              <option value="Model-A">Model-A</option>
+              <option value="Model-B">Model-B</option>
+              <option value="Model-C">Model-C</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="quantity">Quantity *</label>
+            <input type="number" id="quantity" name="quantity" min="1" max="1000" required>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="dateOfManufacturing">Date of Manufacturing *</label>
+            <input type="date" id="dateOfManufacturing" name="dateOfManufacturing" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="brazerName">Brazer Name *</label>
+            <input type="text" id="brazerName" name="brazerName" required>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label for="operatorCode">Leak Testing Operator Code *</label>
+            <input type="text" id="operatorCode" name="operatorCode" required>
+          </div>
+        </div>
+        
+        <h3>Custom Internal Codes</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="codeA">Code A</label>
+            <input type="text" id="codeA" name="codeA">
+          </div>
+          
+          <div class="form-group">
+            <label for="codeB">Code B</label>
+            <input type="text" id="codeB" name="codeB">
+          </div>
+          
+          <div class="form-group">
+            <label for="codeC">Code C</label>
+            <input type="text" id="codeC" name="codeC">
+          </div>
+          
+          <div class="form-group">
+            <label for="codeD">Code D</label>
+            <input type="text" id="codeD" name="codeD">
+          </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary btn-block">🔢 Generate Serial Numbers</button>
+      </form>
+      
+      <div id="serialResults" style="display: none; margin-top: 30px;">
+        <h3>✅ Generated Serial Numbers:</h3>
+        <div class="serial-list" id="serialList"></div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const { ipcRenderer } = require('electron');
+    
+    let currentUser = null;
+    
+    function init() {
+      const userData = localStorage.getItem('user');
+      if (!userData) {
+        window.location.href = 'login.html';
+        return;
+      }
+      currentUser = JSON.parse(userData);
+      
+      // Set default date to today
+      document.getElementById('dateOfManufacturing').valueAsDate = new Date();
+    }
+    
+    const generateForm = document.getElementById('generateForm');
+    const alertDiv = document.getElementById('alert');
+    const serialResults = document.getElementById('serialResults');
+    const serialList = document.getElementById('serialList');
+    
+    generateForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = {
+        modelNumber: document.getElementById('modelNumber').value,
+        quantity: parseInt(document.getElementById('quantity').value),
+        dateOfManufacturing: document.getElementById('dateOfManufacturing').value,
+        brazerName: document.getElementById('brazerName').value,
+        operatorCode: document.getElementById('operatorCode').value,
+        codeA: document.getElementById('codeA').value || '',
+        codeB: document.getElementById('codeB').value || '',
+        codeC: document.getElementById('codeC').value || '',
+        codeD: document.getElementById('codeD').value || '',
+        userId: currentUser.id
+      };
+      
+      alertDiv.innerHTML = '<div class="alert alert-info">Generating serial numbers...</div>';
+      serialResults.style.display = 'none';
+      
+      const result = await ipcRenderer.invoke('generate-serial', formData);
+      
+      if (result.success) {
+        alertDiv.innerHTML = `<div class="alert alert-success">Successfully generated ${result.serials.length} serial numbers!</div>`;
+        
+        // Display generated serials
+        serialList.innerHTML = result.serials.map(serial => 
+          `<div class="serial-item">${serial}</div>`
+        ).join('');
+        
+        serialResults.style.display = 'block';
+        
+        // Reset form
+        generateForm.reset();
+        document.getElementById('dateOfManufacturing').valueAsDate = new Date();
+      } else {
+        alertDiv.innerHTML = `<div class="alert alert-error">Error: ${result.message}</div>`;
+      }
+    });
+    
+    function navigate(page) {
+      window.location.href = page;
+    }
+    
+    function logout() {
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    }
+    
+    init();
+  </script>
+</body>
+</html>

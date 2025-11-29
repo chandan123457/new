@@ -1,0 +1,43 @@
+{
+  "name": "serial-number-generation-software",
+  "version": "1.0.0",
+  "description": "Desktop application for generating and managing serial numbers",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder"
+  },
+  "keywords": [
+    "electron",
+    "serial-number",
+    "sqlite",
+    "desktop-app"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4",
+    "electron-rebuild": "^3.2.9"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "chart.js": "^4.4.0",
+    "pdfkit": "^0.13.0",
+    "xlsx": "^0.18.5"
+  },
+  "build": {
+    "appId": "com.serialnumber.app",
+    "productName": "Serial Number Generator",
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "directories": {
+      "output": "dist"
+    }
+  }
+}
